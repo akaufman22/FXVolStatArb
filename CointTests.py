@@ -1,5 +1,8 @@
+"""
+Numerical Procedures for Cointegration Analysis
+"""
 import numpy as np
-from scipy.stats import t
+from math import log, sqrt
 
 class LinearRegression():
     def __init__(self, X, y, add_constant=True):
@@ -11,6 +14,10 @@ class LinearRegression():
             self.X = X
         self.y = y
         self.coeff = None
+        self.residuals = None
+        self.regression_se = None
+        self.coeff_est = None
+        self.coeff_se = None
 
     def fit(self, model='OLS'):
         if model == 'OLS':
@@ -21,7 +28,7 @@ class LinearRegression():
             #TODO: other models
             raise ValueError('Model not implemented')
         return self
-    
+
     def tstatistics(self, r=0, estimator='default'):
         if estimator == 'default':
             self.coeff_est = estimator
@@ -33,18 +40,20 @@ class LinearRegression():
             raise ValueError('Model not implemented')
     
     def AIC(self):
-        log_likelihood = (-len(self.y) / 2) * (np.log(self.regression_se ** 2) + np.log(2 * np.pi)) - \
-            (self.residuals @ self.residuals.T / (2 * (self.regression_se ** 2)))
+        log_likelihood = (-len(self.y) / 2) * (np.log(self.regression_se ** 2) + \
+                                               np.log(2 * np.pi)) - \
+                                                (self.residuals @ self.residuals.T / (2 * (self.regression_se ** 2)))
         return 2 * len(self.X.T) - 2 * log_likelihood
     
     def BIC(self):
         log_likelihood = (-len(self.y) / 2) * (np.log(self.regression_se ** 2) + np.log(2 * np.pi)) - \
             (self.residuals @ self.residuals.T / (2 * (self.regression_se ** 2)))
-        return len(self.X.T) * np.log(len(y)) - 2 * log_likelihood
+        return len(self.X.T) * np.log(len(self.y)) - 2 * log_likelihood
     
     def __str__(self):
         #TODO str
-        return self
+        s = ''
+        return s
     
 
 class AugmentedDickeyFuller():
@@ -63,7 +72,7 @@ class AugmentedDickeyFuller():
             independent = np.column_stack((independent, np.ones(len(independent))))
         if self.trend:
             independent = np.column_stack((independent, np.arange(1, len(independent) + 1)))
-        if self.autolag == None:
+        if self.autolag is None:
             if self.maxlag != 0:
                 lags = np.column_stack([dependent.shift(i) for i in range(1, self.maxlag+1)])
                 independent = np.column_stack((independent, lags))
@@ -81,7 +90,8 @@ class AugmentedDickeyFuller():
                 for i in range(1, self.maxlag + 1):
                     independent_aic = np.column_stack((independent, lags[:, :i]))[i:]
                     dependent_aic = dependent[i:]
-                    regression = LinearRegression(independent_aic, dependent_aic, add_constant=False)
+                    regression = LinearRegression(independent_aic, dependent_aic,
+                                                  add_constant=False)
                     regression.fit()
                     AICs.append(regression.AIC())
                 optimal_lag = np.argmin(AICs)
@@ -99,7 +109,8 @@ class AugmentedDickeyFuller():
                 for i in range(1, self.maxlag + 1):
                     independent_bic = np.column_stack((independent, lags[:, :i]))[i:]
                     dependent_bic = dependent[i:]
-                    regression = LinearRegression(independent_bic, dependent_bic, add_constant=False)
+                    regression = LinearRegression(
+                        independent_bic, dependent_bic, add_constant=False)
                     regression.fit()
                     BICs.append(regression.BIC())
                 optimal_lag = np.argmin(BICs)
@@ -114,7 +125,8 @@ class AugmentedDickeyFuller():
     
     def __str__(self):
         #TODO str
-        return
+        s = ''
+        return s
 
 class EngleGranger():
     def __init__(self, y, x, intercept=True, trend=False, maxlag=0, autolag='AIC'):
@@ -125,13 +137,18 @@ class EngleGranger():
         self.maxlag = maxlag
         self.autolag = autolag
         self.coeff = None
+        self.residuals = None
+        self.ecm_coeff = None
+        self.ecm_tstat = None
+        self.ADFstat = None
     
     def fit(self):
-        regressioon = LinearRegression(self.x, self.y, add_constant=True)
-        regressioon.fit()
-        self.residuals = regressioon.residuals
-        self.coeff = regressioon.coeff
-        ADF = AugmentedDickeyFuller(self.residuals, intercept=self.intercept, trend=self.trend, maxlag=self.maxlag, autolag=self.autolag)
+        regression = LinearRegression(self.x, self.y, add_constant=True)
+        regression.fit()
+        self.residuals = regression.residuals
+        self.coeff = regression.coeff
+        ADF = AugmentedDickeyFuller(self.residuals, intercept=self.intercept, trend=self.trend,
+                                    maxlag=self.maxlag, autolag=self.autolag)
         ADF.fit()
         self.ADFstat = ADF.coeff
         ecm_x = np.column_stack((self.x.diff()[1:], self.residuals.shift(1)[1:]))
@@ -143,14 +160,29 @@ class EngleGranger():
         return self
     
     def __str__(self):
-        s = 'Engle-Granger Cointegration Test\n' + \
-            '--------------------------------\n' + \
-            'Beta from naive regression: ' + str(self.coeff[1]) + '\n' + \
-            'ADF Statistic for residuals: ' + str(self.ADFstat) + '\n' + \
-            'ECM Coefficient: ' + str(self.ecm_coeff) + '\n' + \
-            'ECM t-statistic: ' + str(self.ecm_tstat) + '\n'
+        #s = 'Engle-Granger Cointegration Test\n' + \
+        #    '--------------------------------\n' + \
+        #    'Beta from naive regression: ' + str(self.coeff[1]) + '\n' + \
+        #    'ADF Statistic for residuals: ' + str(self.ADFstat) + '\n' + \
+        #    'ECM Coefficient: ' + str(self.ecm_coeff) + '\n' + \
+        #    'ECM t-statistic: ' + str(self.ecm_tstat) + '\n'
+        s = f'Engle-Granger Cointegration Test\n' \
+        f'--------------------------------\n' \
+        f'Beta from naive regression: {self.coeff[1]:.2f}\n' \
+        f'ADF Statistic for residuals: {self.ADFstat:.2f}\n' \
+        f'ECM Coefficient: {self.ecm_coeff:.4f}\n' \
+        f'ECM t-statistic: {self.ecm_tstat:.2f}'
         return s
-    
+
+def fit_uo_params(x):
+    AR_regression = LinearRegression(x[:-1], x[1:])
+    AR_regression.fit()
+    theta = -log(AR_regression.coeff[1])
+    mu = AR_regression.coeff[0] / (1 - AR_regression.coeff[1])
+    sigma_eq = np.std(AR_regression.residuals) / sqrt((1 - AR_regression.coeff[1] ** 2))
+    hl = log(2) / theta
+    return theta, mu, sigma_eq, hl
+
 def tableADF(nobs,p):
     #Courtesy of Dr Diamond
 
